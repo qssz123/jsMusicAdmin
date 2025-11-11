@@ -30,68 +30,75 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
   } else {
     env = loadEnv(mode, root)
   }
+
   return {
     base: '/',
     plugins: [
       Vue({
         script: {
-          // 开启defineModelZ
           defineModel: true
         }
       }),
       VueJsx(),
       ServerUrlCopy(),
       progress(),
+
+      // 自动导入 Element Plus 样式
       env.VITE_USE_ALL_ELEMENT_PLUS_STYLE === 'false'
-        ? createStyleImportPlugin({
+          ? createStyleImportPlugin({
             resolves: [ElementPlusResolve()],
             libs: [
               {
                 libraryName: 'element-plus',
                 esModule: true,
                 resolveStyle: (name) => {
-                  if (name === 'click-outside') {
-                    return ''
-                  }
+                  if (name === 'click-outside') return ''
                   return `element-plus/es/components/${name.replace(/^el-/, '')}/style/css`
                 }
               }
             ]
           })
-        : undefined,
+          : undefined,
+
       EslintPlugin({
         cache: false,
         failOnWarning: false,
         failOnError: false,
-        include: ['src/**/*.vue', 'src/**/*.ts', 'src/**/*.tsx'] // 检查的文件
+        include: ['src/**/*.vue', 'src/**/*.ts', 'src/**/*.tsx']
       }),
+
       VueI18nPlugin({
         runtimeOnly: true,
         compositionOnly: true,
         include: [resolve(__dirname, 'src/locales/**')]
       }),
+
       createSvgIconsPlugin({
         iconDirs: [pathResolve('src/assets/svgs')],
         symbolId: 'icon-[dir]-[name]',
         svgoOptions: true
       }),
+
       PurgeIcons(),
+
+      // ✅ 修正这里：只在开发环境启用 mock，生产环境禁用
       env.VITE_USE_MOCK === 'true'
-        ? viteMockServe({
+          ? viteMockServe({
             ignore: /^\_/,
             mockPath: 'mock',
-            localEnabled: !isBuild,
-            prodEnabled: isBuild,
+            localEnabled: !isBuild, // 本地启用 mock
+            prodEnabled: false, // ❌ 生产禁用 mock，防止覆盖 XMLHttpRequest
             injectCode: `
-          import { setupProdMockServer } from '../mock/_createProductionServer'
-
-          setupProdMockServer()
-          `
+              import { setupProdMockServer } from '../mock/_createProductionServer'
+              setupProdMockServer()
+            `
           })
-        : undefined,
+          : undefined,
+
       ViteEjsPlugin({
         title: env.VITE_APP_TITLE
       }),
+
       UnoCSS()
     ],
 
@@ -103,6 +110,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         }
       }
     },
+
     resolve: {
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.less', '.css'],
       alias: [
@@ -116,18 +124,18 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         }
       ]
     },
+
     esbuild: {
       pure: env.VITE_DROP_CONSOLE === 'true' ? ['console.log'] : undefined,
       drop: env.VITE_DROP_DEBUGGER === 'true' ? ['debugger'] : undefined
     },
+
     build: {
       target: 'es2015',
       outDir: env.VITE_OUT_DIR || 'dist',
       sourcemap: env.VITE_SOURCEMAP === 'true',
-      // brotliSize: false,
       rollupOptions: {
         plugins: env.VITE_USE_BUNDLE_ANALYZER === 'true' ? [visualizer()] : undefined,
-        // 拆包
         output: {
           manualChunks: {
             'vue-chunks': ['vue', 'vue-router', 'pinia', 'vue-i18n'],
@@ -140,6 +148,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       cssCodeSplit: !(env.VITE_USE_CSS_SPLIT === 'false'),
       cssTarget: ['chrome31']
     },
+
     server: {
       port: 4000,
       host: '0.0.0.0',
@@ -147,13 +156,11 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         overlay: false
       },
       proxy: {
-        // /api 前缀代理到 8090
         '/api': {
           target: 'http://39.97.40.9:8090',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, '')
         },
-        // /app 前缀代理到 8081
         '/app': {
           target: 'http://39.97.40.9:8081',
           changeOrigin: true,

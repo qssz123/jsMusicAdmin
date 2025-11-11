@@ -32,7 +32,6 @@
       <!-- 封面上传 -->
       <el-form-item label="封面上传" prop="cover">
         <div class="cover-upload-wrapper">
-          <!-- 上传按钮，当没有上传图片时显示 -->
           <el-upload
             v-if="!musicForm.cover"
             class="upload-demo"
@@ -47,8 +46,6 @@
           >
             <i class="el-icon-plus"></i>
           </el-upload>
-
-          <!-- 预览图，当有图片时显示 -->
           <div v-else class="cover-preview">
             <img :src="musicForm.cover" alt="封面预览" class="cover-image" />
             <span class="delete-icon" @click="removeCover">×</span>
@@ -63,6 +60,7 @@
           action="/api/admin/oss/upload"
           :headers="uploadHeaders"
           :before-upload="beforeMusicUpload"
+          :max-size="104857600"
           :limit="1"
           :file-list="musicFileList"
           :show-file-list="true"
@@ -98,10 +96,12 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const userStore = useUserStoreWithOut()
 const token = userStore.getToken
+
 // 上传状态
 const isCoverUploading = ref(false)
 const isMusicUploading = ref(false)
-// 封面上传状态
+
+// 封面上传事件
 const onCoverUploading = () => {
   isCoverUploading.value = true
 }
@@ -113,7 +113,7 @@ const onCoverError = () => {
   isCoverUploading.value = false
 }
 
-// 音乐上传状态
+// 音乐上传事件
 const onMusicUploading = () => {
   isMusicUploading.value = true
 }
@@ -125,6 +125,7 @@ const onMusicSuccess = (response, file) => {
 const onMusicError = () => {
   isMusicUploading.value = false
 }
+
 const uploadHeaders = ref({
   Authorization: `Bearer ${token}`
 })
@@ -148,7 +149,7 @@ const rules = {
   description: [{ required: true, message: '请输入音乐简介', trigger: 'blur' }],
   author: [{ required: true, message: '请输入创作者', trigger: 'blur' }],
   cover: [{ required: true, message: '请上传封面', trigger: 'change' }],
-  // musicFile: [{ required: true, message: '请上传音乐文件', trigger: 'change' }],
+  musicFile: [{ required: true, message: '请上传音乐', trigger: 'change' }],
   lyrics: [{ required: true, message: '请输入音乐歌词', trigger: 'blur' }]
 }
 
@@ -163,21 +164,17 @@ const beforeMusicUpload = (file) => {
 const coverFileList = ref([])
 const musicFileList = ref([])
 
-const handleCoverSuccess = (response, file) => {
-  musicForm.cover = response.data || file.url || ''
-  coverFileList.value = [file]
+const removeCover = () => {
+  musicForm.cover = ''
 }
 
-const handleMusicSuccess = (response, file) => {
-  musicForm.musicFile = response.data || file.url || ''
-  musicFileList.value = [file]
-}
-
+// 获取音乐分类
 const getMusicCategories = async () => {
   const res = await getCategoryList()
   categoryList.value = res.data
 }
 
+// 转换成后端接口格式
 function transformToApiPayload(form, uploaderId) {
   return {
     userName: form.author,
@@ -191,6 +188,46 @@ function transformToApiPayload(form, uploaderId) {
   }
 }
 
+// 自动生成粗略 LRC
+function generateLRC(lyrics, musicFile) {
+  if (!lyrics) return ''
+  const lines = lyrics
+    .trim()
+    .split('\n')
+    .filter((l) => l.trim())
+  if (lines.length === 0) return ''
+
+  return new Promise((resolve) => {
+    const audio = new Audio(musicFile)
+    audio.addEventListener('loadedmetadata', () => {
+      const duration = audio.duration
+      const interval = duration / lines.length
+      let lrc = ''
+      lines.forEach((line, idx) => {
+        const totalSeconds = Math.floor(idx * interval)
+        const min = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
+        const sec = String(totalSeconds % 60).padStart(2, '0')
+        const cs = '00'
+        lrc += `[${min}:${sec}.${cs}]${line}\n`
+      })
+      resolve(lrc)
+    })
+    audio.addEventListener('error', () => {
+      // 读取失败则退回简单5秒间隔
+      let lrc = ''
+      lines.forEach((line, idx) => {
+        const totalSeconds = idx * 5
+        const min = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
+        const sec = String(totalSeconds % 60).padStart(2, '0')
+        const cs = '00'
+        lrc += `[${min}:${sec}.${cs}]${line}\n`
+      })
+      resolve(lrc)
+    })
+  })
+}
+
+// 提交表单
 const submitForm = () => {
   musicFormRef.value.validate(async (valid) => {
     if (!valid) {
@@ -198,24 +235,27 @@ const submitForm = () => {
       return
     }
 
-    // 检查上传状态
     if (isCoverUploading.value || isMusicUploading.value) {
       ElMessage.warning('请等待上传完成后再提交！')
       return
     }
 
     try {
+      // 自动生成 LRC
+      musicForm.lyrics = await generateLRC(musicForm.lyrics, musicForm.musicFile)
+
       const res = await addMusic(transformToApiPayload(musicForm, 123))
       ElMessage.success('音乐已提交！')
       router.push('/musicManagement/musicView')
     } catch (error) {
+      console.error(error)
       ElMessage.error('提交失败，请稍后重试')
     }
   })
 }
 
 const recharge = () => {
-  ElMessage.info('充值功能待实现')
+  ElMessage.info('重置功能待实现')
 }
 
 onMounted(() => {
@@ -243,7 +283,6 @@ onMounted(() => {
   transition: 0.3s;
 }
 
-/* 初始隐藏 × */
 .delete-icon {
   position: absolute;
   top: -6px;
@@ -262,7 +301,6 @@ onMounted(() => {
   transition: opacity 0.2s;
 }
 
-/* hover 时显示 × */
 .cover-preview:hover .delete-icon {
   opacity: 1;
 }

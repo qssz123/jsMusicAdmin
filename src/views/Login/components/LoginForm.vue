@@ -35,7 +35,7 @@ const loginType = ref<'account' | 'phone'>('account')
 const schema = ref<FormSchema[]>([])
 const { formRegister, formMethods } = useForm()
 const { getFormData, getElFormExpose, setValues } = formMethods
-
+import { constantRoutes } from '@/router/routes'
 // 倒计时发送验证码
 const sendCodeF = async () => {
   const formData = await getFormData<UserType>()
@@ -242,22 +242,30 @@ const signIn = async () => {
 
 // 获取角色信息
 const getRole = async () => {
+  // 获取表单数据
   const formData = await getFormData<UserType>()
   const params = { roleName: formData.username }
-  const res =
-    appStore.getDynamicRouter && appStore.getServerDynamicRouter
-      ? await getAdminRoleApi(params)
-      : await getTestRoleApi(params)
-  if (res) {
-    const routers = res.data || []
-    userStore.setRoleRouters(routers)
-    const mode =
-      appStore.getDynamicRouter && appStore.getServerDynamicRouter ? 'server' : 'frontEnd'
-    await permissionStore.generateRoutes(mode, routers).catch(() => {})
-    permissionStore.getAddRouters.forEach((route) => addRoute(route as RouteRecordRaw))
-    permissionStore.setIsAddRouters(true)
-    push({ path: redirect.value || permissionStore.addRouters[0].path })
-  }
+
+  // 之前根据 appStore 动态获取接口，现在可忽略接口调用
+  // const res =
+  //   appStore.getDynamicRouter && appStore.getServerDynamicRouter
+  //     ? await getAdminRoleApi(params)
+  //     : await getTestRoleApi(params)
+
+  // 直接使用固定路由
+  const routers: RouteRecordRaw[] = constantRoutes
+
+  // 设置用户路由（如果需要存储）
+  userStore.setRoleRouters(routers)
+
+  // 添加固定路由到路由器
+  routers.forEach((route) => addRoute(route))
+
+  // 标记已添加路由
+  permissionStore.setIsAddRouters(true)
+
+  // 跳转到首页或默认路由
+  push({ path: redirect.value || routers[0].path })
 }
 </script>
 

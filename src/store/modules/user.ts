@@ -69,10 +69,10 @@ export const useUserStore = defineStore('user', {
         type: 'warning'
       })
         .then(async () => {
-          const res = await loginOutApi().catch(() => {})
-          if (res) {
-            this.reset()
-          }
+          // const res = await loginOutApi().catch(() => {})
+          // if (res) {
+          this.reset()
+          // }
         })
         .catch(() => {})
     },

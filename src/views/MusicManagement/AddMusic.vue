@@ -44,54 +44,95 @@
 
         <!-- 封面上传 -->
         <el-form-item label="封面上传" prop="cover">
-          <div class="cover-upload-wrapper">
-            <el-upload
-              v-if="!musicForm.cover"
-              class="upload-demo"
-              action="/api/admin/oss/upload"
-              :headers="uploadHeaders"
-              :before-upload="beforeCoverUpload"
-              :show-file-list="false"
-              list-type="picture-card"
-              @progress="onCoverUploading"
-              @success="onCoverSuccess"
-              @error="onCoverError"
-            >
-              <i class="el-icon-plus"></i>
-            </el-upload>
-            <div v-else class="cover-preview">
-              <img :src="musicForm.cover" alt="封面预览" class="cover-image" />
-              <span class="delete-icon" @click="removeCover">×</span>
+          <div class="upload-section">
+            <!-- URL输入框放在前面 -->
+            <div class="url-input-wrapper">
+              <div class="url-input-header">
+                <span>输入封面URL</span>
+                <el-tag v-if="musicForm.cover" type="success" size="small">已设置</el-tag>
+              </div>
+              <el-input
+                v-model="coverUrlInput"
+                placeholder="请输入封面图片URL，输入后自动应用"
+                clearable
+                @input="handleCoverUrlInput"
+                @blur="handleCoverUrlBlur"
+              >
+                <template #append>
+                  <el-button @click="clearCoverUrl">清空</el-button>
+                </template>
+              </el-input>
+              <div class="url-tip">输入有效的图片URL后自动应用</div>
+            </div>
+
+            <!-- 上传组件 -->
+            <div class="cover-upload-wrapper">
+              <div class="upload-or">或</div>
+              <el-upload
+                v-if="!musicForm.cover"
+                class="upload-demo"
+                action="/api/admin/s3/upload"
+                :headers="uploadHeaders"
+                :before-upload="beforeCoverUpload"
+                :show-file-list="false"
+                list-type="picture-card"
+                @success="onCoverSuccess"
+                @error="onCoverError"
+              >
+                <i class="el-icon-plus"></i>
+              </el-upload>
+              <div v-else class="cover-preview">
+                <img :src="musicForm.cover" alt="封面预览" class="cover-image" />
+                <span class="delete-icon" @click="removeCover">×</span>
+              </div>
             </div>
           </div>
         </el-form-item>
 
         <!-- 音乐上传 -->
         <el-form-item label="音乐上传" prop="musicFile">
-          <el-upload
-            class="upload-demo"
-            :action="musicUploadAction"
-            :headers="uploadHeaders"
-            :before-upload="beforeMusicUpload"
-            :limit="1"
-            :file-list="musicFileList"
-            :show-file-list="true"
-            :http-request="customMusicUpload"
-            @progress="onMusicUploading"
-            @success="onMusicSuccess"
-            @error="onMusicError"
-          >
-            <el-button size="small" type="primary">点击上传</el-button>
-            <template #tip>
-              <div class="el-upload__tip">
-                支持 mp3, wav 格式文件，WAV文件将自动压缩
-                <div v-if="originalFileSize && compressedFileSize" class="size-comparison">
-                  压缩前: {{ originalFileSize }} → 压缩后: {{ compressedFileSize }} (减少
-                  {{ compressionRatio }}%)
-                </div>
+          <div class="upload-section">
+            <!-- URL输入框放在前面 -->
+            <div class="url-input-wrapper">
+              <div class="url-input-header">
+                <span>输入音乐URL</span>
+                <el-tag v-if="musicForm.musicFile" type="success" size="small">已设置</el-tag>
               </div>
-            </template>
-          </el-upload>
+              <el-input
+                v-model="musicUrlInput"
+                placeholder="请输入音乐文件URL，输入后自动应用"
+                clearable
+                @input="handleMusicUrlInput"
+                @blur="handleMusicUrlBlur"
+              >
+                <template #append>
+                  <el-button @click="clearMusicUrl">清空</el-button>
+                </template>
+              </el-input>
+              <div class="url-tip">输入有效的音频文件URL后自动应用</div>
+            </div>
+
+            <!-- 上传组件 -->
+            <div class="music-upload-wrapper">
+              <div class="upload-or">或</div>
+              <el-upload
+                class="upload-demo"
+                :headers="uploadHeaders"
+                :before-upload="beforeMusicUpload"
+                :limit="1"
+                :file-list="musicFileList"
+                :show-file-list="true"
+                :http-request="customMusicUpload"
+                @success="onMusicSuccess"
+                @error="onMusicError"
+              >
+                <el-button size="small" type="primary">点击上传</el-button>
+                <template #tip>
+                  <div class="el-upload__tip">支持 mp3, wav 格式文件</div>
+                </template>
+              </el-upload>
+            </div>
+          </div>
         </el-form-item>
 
         <!-- 音乐歌词 -->
@@ -100,6 +141,7 @@
             type="textarea"
             v-model="musicForm.lyrics"
             placeholder="请输入歌词或LRC格式歌词"
+            :rows="6"
           />
         </el-form-item>
 
@@ -114,7 +156,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { addMusic, getCategoryList } from '@/api/music'
 import { useUserStoreWithOut } from '@/store/modules/user'
@@ -127,15 +169,14 @@ const token = userStore.getToken
 // 上传状态
 const isUploading = ref(false)
 const uploadProgress = ref(0)
-const originalFileSize = ref('')
-const compressedFileSize = ref('')
 
-const compressionRatio = computed(() => {
-  if (!originalFileSize.value || !compressedFileSize.value) return 0
-  const original = parseFloat(originalFileSize.value)
-  const compressed = parseFloat(compressedFileSize.value)
-  return Math.round((1 - compressed / original) * 100)
-})
+// URL输入框的值
+const coverUrlInput = ref('')
+const musicUrlInput = ref('')
+
+// 防抖定时器
+let coverUrlTimer = null
+let musicUrlTimer = null
 
 const uploadHeaders = ref({ Authorization: `Bearer ${token}` })
 const musicFormRef = ref(null)
@@ -161,139 +202,173 @@ const rules = {
 }
 
 const musicFileList = ref([])
-const musicUploadAction = ref('/api/admin/oss/upload')
 
-// 格式化文件大小
-const formatFileSize = (bytes) => {
-  if (!bytes) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+// 封面URL输入处理
+const handleCoverUrlInput = (value) => {
+  // 清除之前的定时器
+  if (coverUrlTimer) {
+    clearTimeout(coverUrlTimer)
+  }
+
+  // 设置新的定时器，延迟500ms后自动应用
+  coverUrlTimer = setTimeout(() => {
+    applyCoverUrl(value)
+  }, 800)
 }
+
+const handleCoverUrlBlur = () => {
+  // 输入框失去焦点时立即应用
+  if (coverUrlInput.value) {
+    applyCoverUrl(coverUrlInput.value)
+  }
+}
+
+// 音乐URL输入处理
+const handleMusicUrlInput = (value) => {
+  // 清除之前的定时器
+  if (musicUrlTimer) {
+    clearTimeout(musicUrlTimer)
+  }
+
+  // 设置新的定时器，延迟500ms后自动应用
+  musicUrlTimer = setTimeout(() => {
+    applyMusicUrl(value)
+  }, 800)
+}
+
+const handleMusicUrlBlur = () => {
+  // 输入框失去焦点时立即应用
+  if (musicUrlInput.value) {
+    applyMusicUrl(musicUrlInput.value)
+  }
+}
+
+// 应用封面URL
+const applyCoverUrl = (url) => {
+  if (!url) {
+    return
+  }
+
+  // 简单验证URL格式
+  if (!isValidUrl(url)) {
+    // 不显示错误，因为用户可能正在输入
+    return
+  }
+
+  // 验证图片格式
+  const imageExt = url.toLowerCase().split('.').pop()
+  const allowedImageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+  if (!allowedImageExts.includes(imageExt)) {
+    ElMessage.warning('请输入支持的图片格式URL (jpg, png, gif, webp, bmp)')
+    return
+  }
+
+  // 设置封面URL并预览
+  musicForm.cover = url
+  musicFormRef.value.clearValidate(['cover'])
+  ElMessage.success('封面URL已自动应用')
+}
+
+// 应用音乐URL
+const applyMusicUrl = (url) => {
+  if (!url) {
+    return
+  }
+
+  // 简单验证URL格式
+  if (!isValidUrl(url)) {
+    // 不显示错误，因为用户可能正在输入
+    return
+  }
+
+  // 验证文件格式
+  const musicExt = url.toLowerCase().split('.').pop()
+  const allowedExts = ['mp3', 'wav', 'm4a', 'ogg', 'flac']
+  if (!allowedExts.includes(musicExt)) {
+    ElMessage.warning('请输入支持的音频文件URL (mp3, wav, m4a, ogg, flac)')
+    return
+  }
+
+  // 设置音乐文件URL
+  musicForm.musicFile = url
+  musicFileList.value = [
+    {
+      name: url.split('/').pop() || '音乐文件',
+      url: url
+    }
+  ]
+  musicFormRef.value.clearValidate(['musicFile'])
+  ElMessage.success('音乐文件URL已自动应用')
+}
+
+// 清空封面URL
+const clearCoverUrl = () => {
+  coverUrlInput.value = ''
+  musicForm.cover = ''
+  musicFormRef.value.clearValidate(['cover'])
+}
+
+// 清空音乐URL
+const clearMusicUrl = () => {
+  musicUrlInput.value = ''
+  musicForm.musicFile = ''
+  musicFileList.value = []
+  musicFormRef.value.clearValidate(['musicFile'])
+}
+
+// 简单的URL验证函数
+const isValidUrl = (string) => {
+  try {
+    new URL(string)
+    return true
+  } catch (_) {
+    return false
+  }
+}
+
+// 监听表单变化，同步输入框
+watch(
+  () => musicForm.cover,
+  (newVal) => {
+    if (newVal && !coverUrlInput.value) {
+      coverUrlInput.value = newVal
+    }
+  }
+)
+
+watch(
+  () => musicForm.musicFile,
+  (newVal) => {
+    if (newVal && !musicUrlInput.value) {
+      musicUrlInput.value = newVal
+    }
+  }
+)
 
 // 封面上传
 const beforeCoverUpload = () => {
   isUploading.value = true
 }
-const onCoverUploading = () => {
-  isUploading.value = true
-}
 const onCoverSuccess = (res, file) => {
   isUploading.value = false
-  musicForm.cover = res.data || file.url || ''
+  const coverUrl = res.data || file.url || ''
+  musicForm.cover = coverUrl
+  coverUrlInput.value = coverUrl
+  musicFormRef.value.clearValidate(['cover'])
 }
 const onCoverError = () => {
   isUploading.value = false
   musicForm.cover = ''
+  coverUrlInput.value = ''
   ElMessage.error('封面上传失败，请重试')
 }
 const removeCover = () => {
   musicForm.cover = ''
+  coverUrlInput.value = ''
 }
 
 // 检测 WAV
 const isWAVFile = (file) => file.type === 'audio/wav' || file.name.toLowerCase().endsWith('.wav')
-
-// 压缩 WAV 文件
-// 压缩 WAV 文件（更小）
-const compressWAVFile = (wavFile) => {
-  return new Promise((resolve, reject) => {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-    const reader = new FileReader()
-
-    reader.onload = async (e) => {
-      try {
-        const arrayBuffer = e.target.result
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-
-        const targetSampleRate = 8000 // 降到 8kHz
-        const offlineCtx = new OfflineAudioContext(
-          audioBuffer.numberOfChannels,
-          Math.floor((audioBuffer.length * targetSampleRate) / audioBuffer.sampleRate),
-          targetSampleRate
-        )
-
-        const source = offlineCtx.createBufferSource()
-        source.buffer = audioBuffer
-
-        // 动态压缩器 - 更激进
-        const compressor = offlineCtx.createDynamicsCompressor()
-        compressor.threshold.value = -30
-        compressor.knee.value = 20
-        compressor.ratio.value = 8
-        compressor.attack.value = 0.003
-        compressor.release.value = 0.25
-
-        source.connect(compressor)
-        compressor.connect(offlineCtx.destination)
-        source.start(0)
-
-        offlineCtx.startRendering().then((renderedBuffer) => {
-          const wavData = bufferToStandardWav(renderedBuffer)
-          const compressedBlob = new Blob([wavData], { type: 'audio/wav' })
-          const compressedFile = new File(
-            [compressedBlob],
-            wavFile.name.replace('.wav', '_compressed.wav'),
-            { type: 'audio/wav' }
-          )
-          compressedFileSize.value = formatFileSize(compressedFile.size)
-          uploadProgress.value = 50
-          resolve(compressedFile)
-        })
-      } catch (err) {
-        reject(err)
-      }
-    }
-
-    reader.onerror = reject
-    reader.readAsArrayBuffer(wavFile)
-  })
-}
-
-// 生成标准 WAV
-const bufferToStandardWav = (buffer) => {
-  const numOfChan = buffer.numberOfChannels
-  const length = buffer.length * numOfChan * 2 + 44
-  const bufferArray = new ArrayBuffer(length)
-  const view = new DataView(bufferArray)
-  const channels = []
-  let sample,
-    offset = 0,
-    pos = 0
-  const setUint16 = (data) => {
-    view.setUint16(pos, data, true)
-    pos += 2
-  }
-  const setUint32 = (data) => {
-    view.setUint32(pos, data, true)
-    pos += 4
-  }
-  setUint32(0x46464952)
-  setUint32(length - 8)
-  setUint32(0x45564157)
-  setUint32(0x20746d66)
-  setUint32(16)
-  setUint16(1)
-  setUint16(numOfChan)
-  setUint32(buffer.sampleRate)
-  setUint32(buffer.sampleRate * 2 * numOfChan)
-  setUint16(numOfChan * 2)
-  setUint16(16)
-  setUint32(0x61746164)
-  setUint32(length - pos - 4)
-  for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i))
-  while (offset < buffer.length) {
-    for (let i = 0; i < numOfChan; i++) {
-      sample = Math.max(-1, Math.min(1, channels[i][offset]))
-      sample = sample < 0 ? sample * 32768 : sample * 32767
-      view.setInt16(pos, sample, true)
-      pos += 2
-    }
-    offset++
-  }
-  return bufferArray
-}
 
 // 自定义上传
 const customMusicUpload = async (options) => {
@@ -301,42 +376,44 @@ const customMusicUpload = async (options) => {
   try {
     isUploading.value = true
     uploadProgress.value = 0
-    originalFileSize.value = formatFileSize(file.size)
-    let finalFile = file
-    if (isWAVFile(file)) {
-      ElMessage.info('检测到WAV文件，正在压缩...')
-      finalFile = await compressWAVFile(file)
-      ElMessage.success(`压缩完成: ${originalFileSize.value} → ${compressedFileSize.value}`)
-    }
 
     const formData = new FormData()
-    formData.append('file', finalFile)
+    formData.append('file', file)
     const xhr = new XMLHttpRequest()
 
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
-        const percent = Math.floor((e.loaded / e.total) * 49 + 50) // 上传占 50%~99%
-        uploadProgress.value = Math.min(percent, 99)
+        // 上传过程中最多显示到99%
+        const percent = Math.min(99, Math.floor((e.loaded / e.total) * 100))
+        uploadProgress.value = percent
         onProgress({ percent: uploadProgress.value })
       }
     })
 
     xhr.addEventListener('load', () => {
-      isUploading.value = false
+      // 上传完成，立即显示100%
       uploadProgress.value = 100
-      if (xhr.status === 200) {
-        const res = JSON.parse(xhr.responseText)
-        onSuccess({ data: res.data || res.url || '', status: 'success', name: file.name }, file)
-      } else {
-        onError(new Error(`上传失败: ${xhr.status}`))
-      }
+      onProgress({ percent: 100 })
+
+      setTimeout(() => {
+        isUploading.value = false
+        if (xhr.status === 200) {
+          const res = JSON.parse(xhr.responseText)
+          const musicUrl = res.data || res.url || ''
+          onSuccess({ data: musicUrl, status: 'success', name: file.name }, file)
+          musicUrlInput.value = musicUrl
+        } else {
+          onError(new Error(`上传失败: ${xhr.status}`))
+        }
+      }, 300) // 短暂延迟确保用户看到100%
     })
 
     xhr.addEventListener('error', () => {
       isUploading.value = false
       onError(new Error('上传失败'))
     })
-    xhr.open('POST', '/api/admin/oss/upload')
+
+    xhr.open('POST', '/api/admin/s3/upload')
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     xhr.send(formData)
   } catch (err) {
@@ -355,22 +432,21 @@ const beforeMusicUpload = (file) => {
   if (file.size > 100 * 1024 * 1024) ElMessage.warning('文件较大，上传可能需要一些时间')
   return isAudio
 }
-const onMusicUploading = () => {
-  isUploading.value = true
-}
+
 const onMusicSuccess = (res, file) => {
-  isUploading.value = false
   // 兼容不同返回格式
-  musicForm.musicFile =
-    (res && (res.data || res.url)) || (file.response && file.response.data) || ''
+  const musicUrl = (res && (res.data || res.url)) || (file.response && file.response.data) || ''
+  musicForm.musicFile = musicUrl
   musicFileList.value = [file]
-  ElMessage.success('音乐上传成功')
+  musicUrlInput.value = musicUrl
+  musicFormRef.value.clearValidate(['musicFile'])
 }
 
 const onMusicError = () => {
   isUploading.value = false
   musicForm.musicFile = ''
   musicFileList.value = []
+  musicUrlInput.value = ''
   ElMessage.error('音乐上传失败，请重试')
 }
 
@@ -460,8 +536,8 @@ const recharge = () => {
   musicForm.cover = ''
   musicForm.musicFile = ''
   musicFileList.value = []
-  originalFileSize.value = ''
-  compressedFileSize.value = ''
+  coverUrlInput.value = ''
+  musicUrlInput.value = ''
   uploadProgress.value = 0
   ElMessage.success('表单已重置')
 }
@@ -522,9 +598,44 @@ onMounted(() => {
   transition: width 0.2s;
 }
 
-.cover-upload-wrapper {
+.upload-section {
   display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.url-input-wrapper {
+  flex: 1;
+  min-width: 400px;
+}
+
+.url-input-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.url-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.cover-upload-wrapper,
+.music-upload-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-or {
+  color: #909399;
+  font-size: 14px;
 }
 
 .cover-preview {
@@ -562,9 +673,8 @@ onMounted(() => {
   opacity: 1;
 }
 
-.size-comparison {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #999;
+.apply-url-btn {
+  padding: 0;
+  height: auto;
 }
 </style>

@@ -1,5 +1,6 @@
 import request from '@/axios'
-import type { MusicStatusParams } from './types'
+
+export type MusicStatusParams = Record<string, any>
 
 export const addMusic = (data: any) => {
   return request.post({ url: '/api/admin/music', data })
@@ -10,6 +11,12 @@ export const getCategoryList = (): Promise<IResponse> => {
 }
 export const editMusic = (data: any, id: string) => {
   return request.put({ url: `/api/admin/music/${id}`, data })
+}
+export const musicChain = (params: MusicStatusParams) => {
+  return request.put({
+    url: '/api/admin/music/chain',
+    params
+  })
 }
 export const musicStatus = (params: MusicStatusParams) => {
   return request.put({

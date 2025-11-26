@@ -222,6 +222,7 @@ const signIn = async () => {
           userStore.setLoginInfo(undefined)
         }
         userStore.setRememberMe(unref(remember))
+        localStorage.setItem('role', res.data.role)
         userStore.setToken(res.data.token)
         userStore.setUserInfo(res.data)
 

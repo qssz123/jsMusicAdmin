@@ -157,12 +157,12 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       },
       proxy: {
         '/api': {
-          target: 'http://39.97.40.9:8090',
+          target: 'https://www.echorura.com/api',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, '')
         },
         '/app': {
-          target: 'http://39.97.40.9:8081',
+          target: 'https://www.echorura.com/app',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/app/, '')
         }

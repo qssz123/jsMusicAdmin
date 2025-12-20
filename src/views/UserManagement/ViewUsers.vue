@@ -7,8 +7,8 @@
       </el-form-item>
       <el-form-item label="角色">
         <el-select v-model="queryForm.role" placeholder="请选择角色" style="width: 150px">
-          <el-option label="管理员" value="0" />
-          <el-option label="普通用户" value="1" />
+          <el-option label="管理员" value="1" />
+          <el-option label="普通用户" value="0" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -22,7 +22,7 @@
       <el-table-column prop="username" label="用户名称" width="180" />
       <el-table-column prop="role" label="角色" width="150">
         <template #default="scope">
-          <el-tag :type="scope.row.role === 0 ? 'success' : 'danger'">
+          <el-tag :type="scope.row.role === 1 ? 'success' : 'danger'">
             {{ scope.row.roleText }}
           </el-tag>
         </template>
@@ -118,7 +118,7 @@ const saveUser = () => {
     if (index !== -1) {
       users.value[index].username = form.username
       users.value[index].role = form.role
-      users.value[index].roleText = form.role === 'admin' ? '管理员' : '普通用户'
+      users.value[index].roleText = form.role === '1' ? '管理员' : '普通用户'
       ElMessage.success('修改成功')
     }
   } else {
@@ -127,7 +127,7 @@ const saveUser = () => {
       id: newId,
       username: form.username,
       role: form.role,
-      roleText: form.role === 0 ? '管理员' : '普通用户',
+      roleText: form.role === 1 ? '管理员' : '普通用户',
       createdAt: new Date().toISOString().slice(0, 10)
     })
     ElMessage.success('新增成功')
@@ -158,7 +158,7 @@ const getUserData = async () => {
     // 假设接口返回数据在 res.data.records
     users.value = res.data.records.map((item) => ({
       ...item,
-      roleText: item.role === 0 ? '管理员' : '普通用户'
+      roleText: item.role === 1 ? '管理员' : '普通用户'
     }))
   } catch (error) {
     ElMessage.error('获取用户数据失败')

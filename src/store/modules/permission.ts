@@ -15,6 +15,41 @@ export interface PermissionState {
   menuTabRouters: AppRouteRecordRaw[]
 }
 
+// 获取用户角色：直接从localStorage获取
+const getUserRole = (): string => {
+  return localStorage.getItem('role') || '0'
+}
+
+// 过滤函数
+const filterByRole = (routes: AppRouteRecordRaw[], role: string): AppRouteRecordRaw[] => {
+  const roleNum = parseInt(role) || 0
+
+  return routes
+    .map((route) => ({ ...route })) // 创建深拷贝
+    .filter((route) => {
+      // 检查当前路由是否有权限
+      if (route.meta?.role && !route.meta.role.includes(roleNum)) {
+        return false
+      }
+
+      // 如果有子路由，递归过滤
+      if (route.children && route.children.length > 0) {
+        // 深度过滤子路由
+        const filteredChildren = filterByRole(route.children, role)
+
+        // 如果子路由全部被过滤，父路由也不显示
+        if (filteredChildren.length === 0) {
+          return false
+        }
+
+        // 更新子路由
+        route.children = filteredChildren
+      }
+
+      return true
+    })
+}
+
 export const usePermissionStore = defineStore('permission', {
   state: (): PermissionState => ({
     routers: [],
@@ -24,16 +59,21 @@ export const usePermissionStore = defineStore('permission', {
   }),
   getters: {
     getRouters(): AppRouteRecordRaw[] {
-      return this.routers
+      // 直接从localStorage获取角色并过滤
+      const role = getUserRole()
+      return filterByRole(this.routers, role)
     },
     getAddRouters(): AppRouteRecordRaw[] {
-      return flatMultiLevelRoutes(cloneDeep(this.addRouters))
+      const role = getUserRole()
+      const filteredRoutes = filterByRole(this.addRouters, role)
+      return flatMultiLevelRoutes(cloneDeep(filteredRoutes))
     },
     getIsAddRouters(): boolean {
       return this.isAddRouters
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
-      return this.menuTabRouters
+      const role = getUserRole()
+      return filterByRole(this.menuTabRouters, role)
     }
   },
   actions: {
@@ -43,17 +83,24 @@ export const usePermissionStore = defineStore('permission', {
     ): Promise<unknown> {
       return new Promise<void>((resolve) => {
         let routerMap: AppRouteRecordRaw[] = []
-        // if (type === 'server') {
-        //   // 模拟后端过滤菜单
-        //   routerMap = generateRoutesByServer(routers as AppCustomRouteRecordRaw[])
-        // } else if (type === 'frontEnd') {
-        //   // 模拟前端过滤菜单
-        //   routerMap = generateRoutesByFrontEnd(cloneDeep(asyncRouterMap), routers as string[])
-        // } else {
-        // 直接读取静态路由表
-        routerMap = cloneDeep(asyncRouterMap)
-        // }
-        // 动态路由，404一定要放到最后面
+
+        // 直接从localStorage获取角色
+        const role = getUserRole()
+
+        console.log('生成路由，当前角色:', role)
+
+        // 根据角色过滤路由
+        routerMap = filterByRole(cloneDeep(asyncRouterMap), role)
+
+        console.log(
+          '过滤后的路由:',
+          routerMap.map((r) => ({
+            path: r.path,
+            children: r.children?.map((c) => c.path)
+          }))
+        )
+
+        // 404 一定要放到最后面
         this.addRouters = routerMap.concat([
           {
             path: '/:path(.*)*',
@@ -65,14 +112,18 @@ export const usePermissionStore = defineStore('permission', {
             }
           }
         ])
-        // 渲染菜单的所有路由
-        this.routers = cloneDeep(constantRouterMap).concat(routerMap)
+
+        // 存储完整路由
+        this.routers = cloneDeep(constantRouterMap).concat(asyncRouterMap)
+
         resolve()
       })
     },
+
     setIsAddRouters(state: boolean): void {
       this.isAddRouters = state
     },
+
     setMenuTabRouters(routers: AppRouteRecordRaw[]): void {
       this.menuTabRouters = routers
     }

@@ -14,8 +14,8 @@ import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 import { createStyleImportPlugin, ElementPlusResolve } from 'vite-plugin-style-import'
 import UnoCSS from 'unocss/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
-// https://vitejs.dev/config/
 const root = process.cwd()
 
 function pathResolve(dir: string) {
@@ -23,17 +23,18 @@ function pathResolve(dir: string) {
 }
 
 export default ({ command, mode }: ConfigEnv): UserConfig => {
-  let env = {} as any
   const isBuild = command === 'build'
-  if (!isBuild) {
-    env = loadEnv(process.argv[3] === '--mode' ? process.argv[4] : process.argv[3], root)
-  } else {
-    env = loadEnv(mode, root)
-  }
+  const env = loadEnv(mode, root)
 
   return {
     base: '/',
+
+    /* ====================== plugins ====================== */
     plugins: [
+      nodePolyfills({
+        protocolImports: false
+      }),
+
       Vue({
         script: {
           defineModel: true
@@ -43,9 +44,8 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       ServerUrlCopy(),
       progress(),
 
-      // 自动导入 Element Plus 样式
       env.VITE_USE_ALL_ELEMENT_PLUS_STYLE === 'false'
-          ? createStyleImportPlugin({
+        ? createStyleImportPlugin({
             resolves: [ElementPlusResolve()],
             libs: [
               {
@@ -58,7 +58,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
               }
             ]
           })
-          : undefined,
+        : undefined,
 
       EslintPlugin({
         cache: false,
@@ -81,19 +81,14 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
 
       PurgeIcons(),
 
-      // ✅ 修正这里：只在开发环境启用 mock，生产环境禁用
       env.VITE_USE_MOCK === 'true'
-          ? viteMockServe({
+        ? viteMockServe({
             ignore: /^\_/,
             mockPath: 'mock',
-            localEnabled: !isBuild, // 本地启用 mock
-            prodEnabled: false, // ❌ 生产禁用 mock，防止覆盖 XMLHttpRequest
-            injectCode: `
-              import { setupProdMockServer } from '../mock/_createProductionServer'
-              setupProdMockServer()
-            `
+            localEnabled: !isBuild,
+            prodEnabled: false
           })
-          : undefined,
+        : undefined,
 
       ViteEjsPlugin({
         title: env.VITE_APP_TITLE
@@ -102,6 +97,13 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       UnoCSS()
     ],
 
+    /* ====================== define ====================== */
+    define: {
+      global: 'globalThis',
+      'process.env': {}
+    },
+
+    /* ====================== css ====================== */
     css: {
       preprocessorOptions: {
         less: {
@@ -111,29 +113,38 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       }
     },
 
+    /* ====================== resolve ====================== */
     resolve: {
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.less', '.css'],
       alias: [
-        {
-          find: 'vue-i18n',
-          replacement: 'vue-i18n/dist/vue-i18n.cjs.js'
-        },
-        {
-          find: /\@\//,
-          replacement: `${pathResolve('src')}/`
-        }
+        { find: 'vue-i18n', replacement: 'vue-i18n/dist/vue-i18n.cjs.js' },
+        { find: /\@\//, replacement: `${pathResolve('src')}/` },
+        { find: 'buffer', replacement: 'buffer' },
+        { find: 'stream', replacement: 'stream-browserify' },
+        { find: 'crypto', replacement: 'crypto-browserify' },
+        { find: 'process', replacement: 'process/browser' },
+        { find: 'rpc-websockets/dist/lib/client', replacement: 'rpc-websockets' },
+        { find: 'rpc-websockets/dist/lib/client/websocket.browser', replacement: 'rpc-websockets' }
       ]
     },
 
+    /* ====================== esbuild（关键） ====================== */
     esbuild: {
+      target: 'es2020', // ✅ 关键修复
       pure: env.VITE_DROP_CONSOLE === 'true' ? ['console.log'] : undefined,
       drop: env.VITE_DROP_DEBUGGER === 'true' ? ['debugger'] : undefined
     },
 
+    /* ====================== build（关键） ====================== */
     build: {
-      target: 'es2015',
+      target: 'es2020', // ✅ 从 es2015 → es2020（BigInt 必须）
       outDir: env.VITE_OUT_DIR || 'dist',
       sourcemap: env.VITE_SOURCEMAP === 'true',
+      cssCodeSplit: env.VITE_USE_CSS_SPLIT !== 'false',
+      cssTarget: 'chrome80', // ✅ 同步升级
+      commonjsOptions: {
+        transformMixedEsModules: true
+      },
       rollupOptions: {
         plugins: env.VITE_USE_BUNDLE_ANALYZER === 'true' ? [visualizer()] : undefined,
         output: {
@@ -144,11 +155,10 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
             echarts: ['echarts', 'echarts-wordcloud']
           }
         }
-      },
-      cssCodeSplit: !(env.VITE_USE_CSS_SPLIT === 'false'),
-      cssTarget: ['chrome31']
+      }
     },
 
+    /* ====================== server ====================== */
     server: {
       port: 4000,
       host: '0.0.0.0',
@@ -169,6 +179,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       }
     },
 
+    /* ====================== optimizeDeps ====================== */
     optimizeDeps: {
       include: [
         'vue',
@@ -188,8 +199,16 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         'vue-json-pretty',
         '@zxcvbn-ts/core',
         'dayjs',
-        'cropperjs'
-      ]
+        'cropperjs',
+        'buffer',
+        'process/browser'
+      ],
+      esbuildOptions: {
+        target: 'es2020',
+        define: {
+          global: 'globalThis'
+        }
+      }
     }
   }
 }

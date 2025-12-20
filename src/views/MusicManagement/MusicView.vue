@@ -86,13 +86,13 @@
           {{ formatCountFunc(scope.row.goldCoin) }}
         </template>
       </el-table-column>
-      <el-table-column prop="chain" label="是否上链" width="100">
-        <template #default="{ row }">
-          <el-tag :type="row.chain === 1 ? 'success' : 'info'">
-            {{ row.chain === 1 ? '是' : '否' }}
-          </el-tag>
-        </template>
-      </el-table-column>
+      <!--      <el-table-column prop="chain" label="是否上链" width="100">-->
+      <!--        <template #default="{ row }">-->
+      <!--          <el-tag :type="row.chain === 1 ? 'success' : 'info'">-->
+      <!--            {{ row.chain === 1 ? '是' : '否' }}-->
+      <!--          </el-tag>-->
+      <!--        </template>-->
+      <!--      </el-table-column>-->
       <el-table-column prop="createdAt" label="创建时间" width="180" />
       <el-table-column label="操作" width="300" fixed="right" align="center">
         <template #default="scope">
@@ -113,7 +113,9 @@
             type="danger"
             size="small"
             @click="remove(scope.row)"
-            v-if="scope.row.musicStatus !== -1"
+            v-if="
+              scope.row.musicStatus === 1 || (scope.row.musicStatus !== -1 && getRole() === '1')
+            "
           >
             删除
           </el-button>
@@ -123,24 +125,24 @@
             type="warning"
             size="small"
             @click="review(scope.row)"
-            v-if="scope.row.musicStatus === 1"
+            v-if="scope.row.musicStatus === 1 && getRole() === '1'"
           >
             审核
           </el-button>
 
           <!-- 申请上链：已发布且未上链 -->
-          <el-button
-            type="success"
-            size="small"
-            @click="applyChain(scope.row)"
-            v-if="
-              scope.row.musicStatus === 2 &&
-              scope.row.goldCoin >= 1000000 &&
-              scope.row.songCount >= 1000000
-            "
-          >
-            申请上链
-          </el-button>
+          <!--          <el-button-->
+          <!--            type="success"-->
+          <!--            size="small"-->
+          <!--            @click="applyChain(scope.row)"-->
+          <!--            v-if="-->
+          <!--              scope.row.musicStatus === 2 &&-->
+          <!--              scope.row.goldCoin >= 1000000 &&-->
+          <!--              scope.row.songCount >= 1000000-->
+          <!--            "-->
+          <!--          >-->
+          <!--            申请上链-->
+          <!--          </el-button>-->
         </template>
       </el-table-column>
     </el-table>
@@ -308,15 +310,35 @@
       </div>
     </el-dialog>
   </el-card>
+  <!-- 上传 & 上链遮罩层 -->
+  <div v-if="isUploading || isChaining" class="upload-mask">
+    <div class="mask-content">
+      <el-icon class="loading-icon"><i class="el-icon-loading"></i></el-icon>
+
+      <!-- 显示动态文本 -->
+      <p v-if="isUploading">{{ uploadProgress }}% - 上传中，请稍候...</p>
+      <p v-else-if="isChaining">{{ chainMessage }}</p>
+
+      <!-- 上传进度条 -->
+      <div v-if="isUploading" class="progress-bar">
+        <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, onUnmounted } from 'vue'
+import { reactive, ref, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { editMusic, getCategoryList, getMusicList, musicStatus, musicChain } from '@/api/music'
+import { mintUrlsNFT, connectWallet } from '@/utils/nftUtils.ts'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
+// 获取 store
 const userStore = useUserStoreWithOut()
+
+// 绑定动态上链文本
+const chainMessage = computed(() => userStore.getChainMessage)
 const token = userStore.getToken
 
 // 上传状态
@@ -326,7 +348,7 @@ const uploadProgress = ref(0)
 // URL输入框的值
 const coverUrlInput = ref('')
 const musicUrlInput = ref('')
-
+const isChaining = ref(false)
 // 防抖定时器
 let coverUrlTimer = null
 let musicUrlTimer = null
@@ -901,13 +923,45 @@ const review = (row) => {
     distinguishCancelAndClose: true
   })
     .then(async () => {
-      await musicStatusFunc({ music_status: 2, id: row.id })
-      ElMessage.success(`已发布: ${row.musicName}`)
-      getMusic()
+      // ✅ 审核通过前先上链
+      try {
+        isChaining.value = true
+        userStore.setChainMessage(`正在连接钱包...`)
+        console.log('正在连接钱包...')
+        const walletAddress = await connectWallet()
+        console.log('✅ 钱包已连接:', walletAddress)
+        // 上链
+        const nftAddress = await mintUrlsNFT({
+          coverUrl: row.coverImage,
+          musicUrl: row.musicFile,
+          name: row.musicName,
+          description: row.description
+        })
+        console.log('✅ NFT 铸造完成，地址:', nftAddress)
+        await musicChain({ id: row.id, chainHash: nftAddress })
+        ElMessage.success(`已上链: ${row.musicName}`)
+      } catch (err) {
+        console.error('上链失败:', err)
+        ElMessage.error('上链失败，请重试')
+        isChaining.value = false
+        return
+      }
+
+      // 上链成功后再更新后端审核状态
+      try {
+        await musicStatusFunc({ music_status: 2, id: row.id }) // 审核通过
+        ElMessage.success(`已发布: ${row.musicName}`)
+        getMusic()
+      } catch (err) {
+        console.error('审核状态更新失败:', err)
+        ElMessage.error('更新审核状态失败')
+      } finally {
+        isChaining.value = false
+      }
     })
     .catch(async (action) => {
       if (action === 'cancel') {
-        await musicStatusFunc({ music_status: 0, id: row.id })
+        await musicStatusFunc({ music_status: 0, id: row.id }) // 审核不通过
         ElMessage.info(`已拒绝: ${row.musicName}`)
         getMusic()
       }

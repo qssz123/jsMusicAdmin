@@ -149,6 +149,14 @@
         <el-form-item>
           <el-button type="primary" @click="submitForm">提交</el-button>
           <el-button type="success" @click="recharge">重置</el-button>
+          <span style="margin-left: 60px; line-height: 20px">
+            音乐创作平台推荐suno：
+            <a href="https://suno.cn" target="_blank">https://suno.cn</a><br />
+            歌词生成lrc推荐地址：
+            <a href="https://sanmusen214.github.io/web_lyric_editor/" target="_blank"
+              >https://sanmusen214.github.io/web_lyric_editor/</a
+            >
+          </span>
         </el-form-item>
       </el-form>
     </el-card>

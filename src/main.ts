@@ -35,7 +35,12 @@ import { createApp } from 'vue'
 import App from './App.vue'
 
 import './permission'
+import { Buffer } from 'buffer'
+import process from 'process'
 
+window.Buffer = Buffer
+window.process = process
+window.global = window
 // 创建实例
 const setupAll = async () => {
   const app = createApp(App)

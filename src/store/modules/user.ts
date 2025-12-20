@@ -14,6 +14,8 @@ interface UserState {
   roleRouters?: string[] | AppCustomRouteRecordRaw[]
   rememberMe: boolean
   loginInfo?: UserLoginType
+  chainMessage?: string // 添加 chainMessage
+  role?: string // 添加 role
 }
 
 export const useUserStore = defineStore('user', {
@@ -23,9 +25,10 @@ export const useUserStore = defineStore('user', {
       tokenKey: 'Authorization',
       token: '',
       roleRouters: undefined,
-      // 记住我
       rememberMe: true,
-      loginInfo: undefined
+      loginInfo: undefined,
+      chainMessage: '', // 初始化 chainMessage
+      role: '' // 初始化 role
     }
   },
   getters: {
@@ -46,6 +49,12 @@ export const useUserStore = defineStore('user', {
     },
     getLoginInfo(): UserLoginType | undefined {
       return this.loginInfo
+    },
+    getChainMessage(): string | undefined {
+      return this.chainMessage
+    },
+    getRole(): string | undefined {
+      return this.role
     }
   },
   actions: {
@@ -60,6 +69,12 @@ export const useUserStore = defineStore('user', {
     },
     setRoleRouters(roleRouters: string[] | AppCustomRouteRecordRaw[]) {
       this.roleRouters = roleRouters
+    },
+    setChainMessage(chainMessage: string) {
+      this.chainMessage = chainMessage // 设置 chainMessage
+    },
+    setRole(role: string) {
+      this.role = role // 设置 role
     },
     logoutConfirm() {
       const { t } = useI18n()
@@ -82,6 +97,8 @@ export const useUserStore = defineStore('user', {
       this.setToken('')
       this.setUserInfo(undefined)
       this.setRoleRouters([])
+      this.setChainMessage('') // 清空 chainMessage
+      this.setRole('') // 清空 role
       router.replace('/login')
     },
     logout() {

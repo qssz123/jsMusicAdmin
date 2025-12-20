@@ -80,29 +80,6 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
 ]
 
 export const asyncRouterMap: AppRouteRecordRaw[] = [
-  // {
-  //   path: '/dashboard',
-  //   component: Layout,
-  //   redirect: '/dashboard/analysis',
-  //   name: 'Dashboard',
-  //   meta: {
-  //     title: t('router.dashboard'),
-  //     icon: 'vi-ant-design:dashboard-filled',
-  //     alwaysShow: true
-  //   },
-  //   children: [
-  //     {
-  //       path: 'analysis',
-  //       component: () => import('@/views/Dashboard/Analysis.vue'),
-  //       name: 'Analysis',
-  //       meta: {
-  //         title: t('router.analysis'),
-  //         noCache: true,
-  //         affix: true
-  //       }
-  //     }
-  //   ]
-  // },
   {
     path: '/musicManagement',
     component: Layout,
@@ -111,7 +88,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     meta: {
       title: t('router.musicManagement'),
       icon: 'vi-ant-design:dashboard-filled',
-      alwaysShow: true
+      alwaysShow: true,
+      role: [0, 1]
     },
     children: [
       {
@@ -121,7 +99,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         meta: {
           title: t('router.addMusic'),
           noCache: true,
-          affix: true
+          affix: true,
+          role: [0, 1]
         }
       },
       {
@@ -131,19 +110,21 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         meta: {
           title: t('router.musicView'),
           noCache: true,
-          affix: true
-        }
-      },
-      {
-        path: 'categoryManagement',
-        component: () => import('@/views/MusicManagement/CategoryManagement.vue'),
-        name: 'categoryManagement',
-        meta: {
-          title: t('router.categoryManagement'),
-          noCache: true,
-          affix: true
+          affix: true,
+          role: [0, 1]
         }
       }
+      // {
+      //   path: 'categoryManagement',
+      //   component: () => import('@/views/MusicManagement/CategoryManagement.vue'),
+      //   name: 'categoryManagement',
+      //   meta: {
+      //     title: t('router.categoryManagement'),
+      //     noCache: true,
+      //     affix: true,
+      //     role: [1]
+      //   }
+      // }
     ]
   },
   {
@@ -154,7 +135,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     meta: {
       title: t('router.userManagement'),
       icon: 'vi-ant-design:dashboard-filled',
-      alwaysShow: true
+      alwaysShow: true,
+      role: [1]
     },
     children: [
       {
@@ -164,7 +146,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         meta: {
           title: t('router.viewUsers'),
           noCache: true,
-          affix: true
+          affix: true,
+          role: [1]
         }
       },
       {
@@ -174,7 +157,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         meta: {
           title: t('router.roleManagement'),
           noCache: true,
-          affix: true
+          affix: true,
+          role: [1]
         }
       }
     ]
@@ -187,7 +171,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     meta: {
       title: t('router.commentManagement'),
       icon: 'vi-ant-design:dashboard-filled',
-      alwaysShow: true
+      alwaysShow: true,
+      role: [1]
     },
     children: [
       {
@@ -197,7 +182,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         meta: {
           title: t('router.viewComments'),
           noCache: true,
-          affix: true
+          affix: true,
+          role: [1]
         }
       },
       {
@@ -207,7 +193,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         meta: {
           title: t('router.commentCategories'),
           noCache: true,
-          affix: true
+          affix: true,
+          role: [1]
         }
       }
     ]

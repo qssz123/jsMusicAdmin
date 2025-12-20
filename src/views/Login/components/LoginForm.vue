@@ -185,7 +185,7 @@ watch(loginType, updateSchema, { immediate: true })
 
 // 初始化
 onMounted(() => {
-  setValues({ username: '13800138000', password: '' })
+  setValues({ username: '', password: '' })
 })
 
 const redirect = ref<string>('')
@@ -225,15 +225,14 @@ const signIn = async () => {
         localStorage.setItem('role', res.data.role)
         userStore.setToken(res.data.token)
         userStore.setUserInfo(res.data)
-
-        if (appStore.getDynamicRouter) {
-          await getRole()
-        } else {
-          await permissionStore.generateRoutes('static').catch(() => {})
-          permissionStore.getAddRouters.forEach((route) => addRoute(route as RouteRecordRaw))
-          permissionStore.setIsAddRouters(true)
-          push({ path: redirect.value || permissionStore.addRouters[0].path })
-        }
+        // if (appStore.getDynamicRouter) {
+        //   await getRole()
+        // } else {
+        await permissionStore.generateRoutes('static').catch(() => {})
+        permissionStore.getAddRouters.forEach((route) => addRoute(route as RouteRecordRaw))
+        permissionStore.setIsAddRouters(true)
+        push({ path: redirect.value || permissionStore.addRouters[0].path })
+        // }
       }
     } finally {
       loading.value = false
@@ -274,7 +273,7 @@ const getRole = async () => {
   <div class="w-full">
     <ElTabs v-model="loginType" class="mb-4 no-tab-border">
       <ElTabPane label="账号登录" name="account" />
-      <ElTabPane label="手机号登录" name="phone" />
+      <!--      <ElTabPane label="手机号登录" name="phone" />-->
     </ElTabs>
 
     <Form

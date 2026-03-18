@@ -136,6 +136,7 @@ export default {
     commentCategories: '评论分类',
     addMusic: '添加音乐',
     musicView: '音乐查看',
+    onlineCreation: '在线创作',
     categoryManagement: '分类管理',
     userManagement: '用户管理',
     viewUsers: '查看用户',

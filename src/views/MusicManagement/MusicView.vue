@@ -35,7 +35,7 @@
 
     <!-- 表格 -->
     <el-table :data="tableData" border style="width: 100%; margin-top: 20px">
-      <el-table-column prop="musicName" label="音乐名称" width="150" />
+      <el-table-column prop="musicName" label="音乐名称" width="150" fixed="left" />
       <el-table-column prop="userName" label="音乐作者" width="120" />
       <el-table-column prop="categoryId" label="分类" width="80">
         <template #default="{ row }">
@@ -94,6 +94,7 @@
       <!--        </template>-->
       <!--      </el-table-column>-->
       <el-table-column prop="createdAt" label="创建时间" width="180" />
+      <el-table-column prop="updatedAt" label="更新时间" width="180" />
       <el-table-column label="操作" width="300" fixed="right" align="center">
         <template #default="scope">
           <!-- 编辑 -->
@@ -151,10 +152,12 @@
     <div style="margin-top: 20px; text-align: right">
       <el-pagination
         v-model:current-page="queryForm.page"
-        :page-size="queryForm.size"
+        v-model:page-size="queryForm.size"
+        :page-sizes="[5, 10, 20, 50]"
         :total="total"
-        layout="prev, pager, next, jumper"
-        @current-change="handlePageChange"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
       />
     </div>
 
@@ -449,7 +452,17 @@ const isLRCFormat = (lyrics) => {
   if (!lyrics) return false
   return /\[\d{1,2}:\d{2}(?:\.\d{1,2})?\]/.test(lyrics)
 }
+const handleSizeChange = (size) => {
+  queryForm.size = size
+  queryForm.page = 1 // 切换每页条数时回到第一页
+  getMusic()
+}
 
+// 当前页改变
+const handleCurrentChange = (page) => {
+  queryForm.page = page
+  getMusic()
+}
 // 生成LRC歌词
 const generateLRC = (lyrics, musicFile) => {
   if (!lyrics) return ''
@@ -783,6 +796,7 @@ const getMusic = async () => {
     const records = res.data.records || []
     tableData.value = records.map((item) => ({
       ...item,
+      updatedAt: new Date(item.updatedAt).toLocaleString(),
       createdAt: new Date(item.createdAt).toLocaleString(),
       statusText:
         item.musicStatus === 2

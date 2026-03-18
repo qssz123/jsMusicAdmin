@@ -113,6 +113,17 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           affix: true,
           role: [0, 1]
         }
+      },
+      {
+        path: 'onlineCreation',
+        component: () => import('@/views/MusicManagement/OnlineCreation.vue'),
+        name: 'onlineCreation',
+        meta: {
+          title: t('router.onlineCreation'),
+          noCache: true,
+          affix: true,
+          role: [0, 1]
+        }
       }
       // {
       //   path: 'categoryManagement',

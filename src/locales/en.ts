@@ -139,6 +139,7 @@ export default {
     commentCategories: 'Comment Categories',
     addMusic: 'add Music',
     musicView: 'Music View',
+    onlineCreation: 'Online creation',
     categoryManagement: 'Category management',
     userManagement: 'User Management',
     viewUsers: 'View Users',
